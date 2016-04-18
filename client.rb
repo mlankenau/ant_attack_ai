@@ -7,16 +7,20 @@ class Client < BaseClient
   LOBBY = "games:lobby"
 
   def name
-    'AI Player'
+    @name ||= "AInt_bad_#{Random.new.rand(10)}"
   end
 
   def play
     neutrals = planets.select { |p| p.player != player_num }
     my = planets.select { |p| p.player == player_num}
 
-    my.each do |src|
-      sorted = neutrals.sort { |x, y| src.distance(x) <=> src.distance(y) }
-      shoot(src.idx, sorted.first.idx)
+    if my.count > 0
+      puts "shooting something"
+      my.shuffle.first(2).each do |src|
+        sorted = neutrals.sort { |x, y| src.distance(x) <=> src.distance(y) }
+        t = sorted.first
+        shoot(src.idx, t.idx) if t 
+      end
     end
   end
 end

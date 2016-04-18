@@ -2,7 +2,6 @@ require 'rubygems'
 require 'websocket-client-simple'
 require 'json'
 require 'ostruct'
-require 'byebug'
 
 class Planet < OpenStruct
   def distance(planet)
@@ -20,7 +19,8 @@ class BaseClient
     @mode = :lobby
 
     puts "init"
-    @ws = WebSocket::Client::Simple.connect('ws://ant-attack.com/socket/websocket')
+    #@ws = WebSocket::Client::Simple.connect('ws://ant-attack.com/socket/websocket')
+    @ws = WebSocket::Client::Simple.connect('ws://localhost:4000/socket/websocket')
     puts "got ws #{@ws}"
     me = self
     @ws.on :message do |msg|
@@ -77,6 +77,8 @@ class BaseClient
   end
 
   def on_players_update(payload)
+    @players = payload["players"]
+    puts "players update #{payload}"
   end
 
   def on_enter_game(payload)
@@ -95,11 +97,16 @@ class BaseClient
     @planets = payload['planets'].map { |h| Planet.new(h)}
   end
 
+  def on_heartbeat(payload)
+    ws_send('phoenix', 'heartbeat', {})
+  end
+
   def on_update_planets(payload)
     @planets = payload['planets'].map { |h| Planet.new(h)}
   end
 
   def on_game_over(payload)
+    sleep 2
     ws_send(@game_channel, 'phx_leave', {})
     login
     @mode = :lobby
@@ -113,6 +120,12 @@ class BaseClient
     while @mode == :lobby do
       sleep 1
       ws_send(LOBBY, 'lobby_alive', {from: name})
+
+      @players.reject { |p| p == name }.shuffle.first.tap { |p|
+        if p
+          ws_send(LOBBY, 'challenge', from: name, to: p)
+        end
+      }
     end
   end
 
@@ -122,6 +135,22 @@ class BaseClient
       play if planets.size > 0
       sleep(1)
     end
+  end
+
+  def ask_to_challenge
+    if @user_to_challenge.nil?
+      puts 'Do you want to challenge a user? Enter the name or leave blank.'
+      print '> '
+      @user_to_challenge = gets.chomp
+    end
+    return false if @user_to_challenge.empty?
+    puts "challenging #{@user_to_challenge}"
+    @mode = :lobby
+    while @mode == :lobby
+      ws_send(LOBBY, 'challenge', from: name, to: @user_to_challenge)
+      sleep 2
+    end
+    true
   end
 
   def main_loop

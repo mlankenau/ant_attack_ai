@@ -22,15 +22,11 @@ class BaseClient
     @game_channel.send('shoot', {from: from, to: to})
   end
 
-  def play
-  end
-
   def enter_game(game_info)
     @player_num = game_info.player_num
     @planets = game_info.map.planets.map { |h| Planet.new(h)}
-    Thread.new do
+    @game_thread = Thread.new do
       loop do
-        puts "invoking play"
         sleep 1
         begin
           play
@@ -46,6 +42,13 @@ class BaseClient
       end
       c.on_update_planets do |payload|
         @planets = payload.planets.map { |h| Planet.new(h)}
+      end
+      c.on_game_over do |payload|
+        @game_thread.kill
+      end
+      c.on_send_ships do |payload|
+      end
+      c.on_phx_reply do |payload|
       end
     end
   end
@@ -82,7 +85,9 @@ class BaseClient
      sleep 1
     end
     login
-    sleep 1000000
+    loop do
+      sleep 10
+    end
   end
 end
 
